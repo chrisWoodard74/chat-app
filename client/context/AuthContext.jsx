@@ -21,10 +21,12 @@ export const AuthProvider = ({children}) => {
             const { data } = await axios.get("/api/auth/check");
             if (data.success) {
                 setAuthUser(data.user)
-                connectSocket(data.user)
+                connectSocket(data.user, token)
             }
         } catch (error) {
-            toast.error(error.message)
+            if (error.response?.status !== 401) {
+                toast.error(error.message)
+            }
         }
     }
 
@@ -34,7 +36,7 @@ export const AuthProvider = ({children}) => {
             const { data } = await axios.post(`/api/auth/${state}`, credentials);
             if (data.success){
                 setAuthUser(data.userData);
-                connectSocket(data.userData);
+                connectSocket(data.userData, data.token);
                 axios.defaults.headers.common["token"] = data.token;
                 setToken(data.token);
                 localStorage.setItem("token", data.token)
@@ -64,26 +66,35 @@ export const AuthProvider = ({children}) => {
             if(data.success){
                 setAuthUser(data.user);
                 toast.success("Profile updated successfully")
+                return true;
             }
+            toast.error(data.message);
+            return false;
         } catch (error) {
-            toast.error(error.message);
+            toast.error(error.response?.data?.message || error.message);
+            return false;
         }
     }
 
     // Connect socket function to handle socket connection and online users updates
-    const connectSocket = (userData) => {
-        if(!userData || socket?.connected) return;
+    const connectSocket = (userData, authToken = token) => {
+        if(!userData?._id || socket?.connected) return;
         const newSocket = io(backendUrl, {
-            query: {
-                userId: userData._id,
-            }
+            auth: {
+                token: authToken,
+            },
+            autoConnect: false,
         });
-        newSocket.connect();
-        setSocket(newSocket);
 
         newSocket.on("getOnlineUsers", (userIds)=>{
             setOnlineUsers(userIds)
         })
+        newSocket.on("connect_error", (error) => {
+            toast.error(`Socket connection failed: ${error.message}`);
+        });
+
+        setSocket(newSocket);
+        newSocket.connect();
     }
 
     useEffect(()=>{

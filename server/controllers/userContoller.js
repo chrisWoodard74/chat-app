@@ -58,20 +58,24 @@ export const updateProfile = async (req,res) => {
     try {
         const {profilePic, bio, fullName } = req.body;
 
+        if (!fullName || !bio) {
+            return res.status(400).json({success:false, message:"Name and bio are required"});
+        }
+
         const userId = req.user._id;
         let updatedUser;
 
         if(!profilePic){
-            updatedUser = await User.findByIdAndUpdate(userId,{bio,fullName}, {new:true});
+            updatedUser = await User.findByIdAndUpdate(userId,{bio,fullName}, {new:true}).select("-password");
         }else{
             const upload = await cloudinary.uploader.upload(profilePic);
 
-            updatedUser = await User.findByIdAndUpdate(userId, {profilePic:upload.secur_url, bio, fullName}, {new: true});
+            updatedUser = await User.findByIdAndUpdate(userId, {profilePic:upload.secure_url, bio, fullName}, {new: true}).select("-password");
         }
         res.json({success:true, user:updatedUser });
 
     } catch (error) {
         console.log(error.message);
-        res.json({success:false, message:error.message})
+        res.status(500).json({success:false, message:error.message})
     }
 }

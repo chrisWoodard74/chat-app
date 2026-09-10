@@ -6,6 +6,7 @@ import { connectDB } from "./lib/db.js";
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
 
 // Create Express app and HTTP server
 const app = express();
@@ -19,9 +20,23 @@ export const io = new Server(server, {
 // Store online users
 export const userSocketMap = {}; // { userId: socketID} 
 
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("Not authorized"));
+
+    try {
+        const { userId } = jwt.verify(token, process.env.JWT_SECRET);
+        if (!userId) return next(new Error("Invalid token"));
+        socket.userId = userId.toString();
+        next();
+    } catch (error) {
+        next(new Error("Invalid token"));
+    }
+});
+
 // Socket.io connection handler
 io.on("connection", (socket)=>{
-    const userId = socket.handshake.query.userId;
+    const userId = socket.userId.toString();
     console.log("User Connected", userId)
     
     if(userId) userSocketMap[userId] = socket.id;
@@ -31,7 +46,9 @@ io.on("connection", (socket)=>{
 
     socket.on("disconnect",()=>{
         console.log("User Disconnected", userId);
-        delete userSocketMap[userId];
+        if (userSocketMap[userId] === socket.id) {
+            delete userSocketMap[userId];
+        }
         io.emit("getOnlineUsers", Object.keys(userSocketMap));
     })
 })
