@@ -1,5 +1,16 @@
 # React + Vite
 
+## Deployment
+
+Deploy the `client` directory as a Vercel project with these environment variables:
+
+```text
+VITE_BACKEND_URL=https://your-api-host.example.com
+VITE_SOCKET_URL=https://your-api-host.example.com
+```
+
+The API and Socket.IO server must run on a persistent Node host such as Render, Railway, or Fly.io. Vercel Functions do not support the persistent Socket.IO connection required by this app.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
