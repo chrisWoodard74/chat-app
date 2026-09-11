@@ -3,7 +3,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { io } from "socket.io-client";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "");
 axios.defaults.baseURL = backendUrl;
 
 export const AuthContext = createContext();
@@ -56,7 +56,8 @@ export const AuthProvider = ({children}) => {
         setOnlineUsers([]);
         axios.defaults.headers.common["token"] = null;
         toast.success("Logged out successfully")
-        socket.disconnect();
+        socket?.disconnect();
+        setSocket(null);
     }
 
     // Update profile function to handle user updates
@@ -78,7 +79,7 @@ export const AuthProvider = ({children}) => {
 
     // Connect socket function to handle socket connection and online users updates
     const connectSocket = (userData, authToken = token) => {
-        if(!userData?._id || socket?.connected) return;
+        if (!backendUrl || !userData?._id || socket?.connected) return;
         const newSocket = io(backendUrl, {
             auth: {
                 token: authToken,
@@ -93,9 +94,15 @@ export const AuthProvider = ({children}) => {
             toast.error(`Socket connection failed: ${error.message}`);
         });
 
+        newSocket.on("disconnect", () => {
+            setOnlineUsers([]);
+        });
+
         setSocket(newSocket);
         newSocket.connect();
     }
+
+    useEffect(() => () => socket?.disconnect(), [socket]);
 
     useEffect(()=>{
         if(token){
